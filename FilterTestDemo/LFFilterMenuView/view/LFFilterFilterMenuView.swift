@@ -46,8 +46,10 @@ class LFFilterFilterMenuView: UIView ,UICollectionViewDataSource,UICollectionVie
     
     let bottomButtonHeight:CGFloat = 50
     
-    var selectedBrandId = Set<String>()
-    var selectedCategoryId = Set<String>()
+    var filterAllBrandListArray = [LFFilterFilterDataModel]()
+    var filterAllCategoryListArray = [LFFilterFilterDataModel]()
+    var selectedBrandIdsSet = Set<String>() //缓存选中的brandid --
+    var selectedCategoryIdsSet = Set<String>() // 缓存选中的categoryid --
     var selectedMinPrice:String?
     var selectedMaxPrice:String?
     
@@ -171,6 +173,7 @@ class LFFilterFilterMenuView: UIView ,UICollectionViewDataSource,UICollectionVie
     
     @objc func sureButtonClicked() { // 确认 保存所有值
         var dict = [String:Any]()
+        var requestDict = [String:Any]()
         for item in self.filterTitleDataArray {
             if item.isTempSelected {
                 
@@ -191,23 +194,26 @@ class LFFilterFilterMenuView: UIView ,UICollectionViewDataSource,UICollectionVie
             if item.modelRequestParmType == .price {
                 if checkStringIsValue(string: self.selectedMinPrice) {
                     item.filterMinPrice = self.selectedMinPrice!
-                    dict.updateValue(item.filterMinPrice, forKey: "minPrice")
+                    requestDict.updateValue(item.filterMinPrice, forKey: "minPrice")
                     
                 }
                 if checkStringIsValue(string: self.selectedMaxPrice) {
                     item.filterMaxPrice = self.selectedMaxPrice!
-                    dict.updateValue(item.filterMaxPrice, forKey: "maxPrice")
+                    requestDict.updateValue(item.filterMaxPrice, forKey: "maxPrice")
                 }
             }
-            if item.isSelected {
-                switch item.modelRequestParmType {
-                case .sellStatus:
-                    dict.updateValue("1", forKey: item.modelKey) //只看在售
-                case .brand:
-                    dict.updateValue("", forKey: item.modelKey)
-                case .category:
-                    dict.updateValue("", forKey: item.modelKey)
-                case .filter:
+            switch item.modelRequestParmType {
+            case .sellStatus:
+                requestDict.updateValue(item.isSelected ? "1":"0", forKey: item.modelKey) //只看在售
+            case .brand:
+//                    dict.updateValue("", forKey: item.modelKey)
+                break
+            case .category:
+                
+//                    dict.updateValue("", forKey: item.modelKey)
+                break
+            case .filter:
+                if item.isSelected {
                     var subDictArr = [String]()
                     for sItem in item.dataArray! {
                         if sItem.isSelected == true {
@@ -215,14 +221,80 @@ class LFFilterFilterMenuView: UIView ,UICollectionViewDataSource,UICollectionVie
                         }
                     }
                     dict.updateValue(subDictArr, forKey: item.modelKey)
-                case .price:
-                    break
+                }
+                
+            case .price:
+                break
+            }
+            
+            item.isUnFold = false
+        }
+        // 品牌
+        var brandSubDictArr = [String]()
+        for item in self.filterAllBrandListArray {
+            if item.isTempSelected {
+                if item.dataArray != nil {
+                    var select = false
+                    for sItem in item.dataArray! {
+                        sItem.isSelected =  sItem.isTempSelected
+                        if sItem.isSelected == true {
+                            select = true
+                        }
+                    }
+                    item.isSelected = select
+                    item.isTempSelected = item.isSelected
+                } else {
+                    
                 }
             }
-            item.isUnFold = false
             
+            for sItem in item.dataArray! {
+                if sItem.isSelected == true {
+                    brandSubDictArr.append(sItem.modelValue)
+                }
+            }
         }
-        viewDelegate?.lfFilterFilterMenuViewDidSaveSelectedRequestParam(view: self, dict: dict)
+        
+        // 品类
+        var categorySubDictArr = [String]()
+        for item in self.filterAllCategoryListArray {
+            if item.isTempSelected {
+                if item.dataArray != nil {
+                    var select = false
+                    for sItem in item.dataArray! {
+                        sItem.isSelected =  sItem.isTempSelected
+                        if sItem.isSelected == true {
+                            select = true
+                        }
+                    }
+                    item.isSelected = select
+                    item.isTempSelected = item.isSelected
+                } else {
+                    
+                }
+            }
+            
+            for sItem in item.dataArray! {
+                if sItem.isSelected == true {
+                    categorySubDictArr.append(sItem.modelValue)
+                }
+            }
+        }
+
+        
+        
+        if dict.count > 0 {
+            requestDict.updateValue(dict, forKey: "filter")
+        }
+        if brandSubDictArr.count > 0 {
+            requestDict.updateValue(brandSubDictArr, forKey: "brandId")
+        }
+        if categorySubDictArr.count > 0 {
+            requestDict.updateValue(categorySubDictArr, forKey: "groupId")
+        }
+        
+        
+        viewDelegate?.lfFilterFilterMenuViewDidSaveSelectedRequestParam(view: self, dict: requestDict)
         self.dismissDropFilterCollection()
         self.dismissSideFilterCollection()
     }
@@ -249,7 +321,32 @@ class LFFilterFilterMenuView: UIView ,UICollectionViewDataSource,UICollectionVie
                 }
             }
             item.isTempSelected = item.isSelected
-         
+        }
+        
+        // 清空所有品牌临时选项
+        selectedBrandIdsSet.removeAll()
+        for item in self.filterAllBrandListArray {
+            if checkArrayHasLessOneValue(arr: item.dataArray) {
+                for sItem in item.dataArray! {
+                    sItem.isTempSelected = sItem.isSelected
+                    if sItem.isSelected && checkStringIsValue(string: sItem.modelValue) {
+                        selectedBrandIdsSet.insert(sItem.modelValue)
+                    }
+                }
+            }
+        }
+        
+        // 清空所有品类临时选项
+        selectedBrandIdsSet.removeAll()
+        for item in self.filterAllCategoryListArray {
+            if checkArrayHasLessOneValue(arr: item.dataArray) {
+                for sItem in item.dataArray! {
+                    sItem.isTempSelected = sItem.isSelected
+                    if sItem.isSelected && checkStringIsValue(string: sItem.modelValue) {
+                        selectedCategoryIdsSet.insert(sItem.modelValue)
+                    }
+                }
+            }
         }
     }
     
@@ -497,45 +594,87 @@ extension LFFilterFilterMenuView {
                 if model.dataArray != nil && model.dataArray!.count > indexPath.row {
                     let sModel = model.dataArray![indexPath.row]
                     sModel.isTempSelected = !sModel.isTempSelected
-                    
+                    self.selectedBrandIdsSet.removeAll()
+                    self.selectedCategoryIdsSet.removeAll()
                     for sItem in model.dataArray! {
-                        if sItem.isTempSelected {
+                        if sItem.isTempSelected && checkStringIsValue(string: sItem.modelValue) {
                             model.isTempSelected = true
+                            if model.modelRequestParmType == .brand {
+                                self.selectedBrandIdsSet.insert(sItem.modelValue)
+                            } else if model.modelRequestParmType == .category {
+                                self.selectedCategoryIdsSet.insert(sItem.modelValue)
+                            }
                         }
                     }
                 }
+                if model.modelRequestParmType == .brand {
+                    refreshAllBrandDataStatus()
+                } else if model.modelRequestParmType == .category {
+                    refreshAllCategoryDataStatus()
+                }
             }
+            
             collectionView.reloadData()
         } else if collectionView == self.sideFilterCollectionView { //侧边筛选
             if self.filterTitleDataArray.count > indexPath.section {
                 let model = self.filterTitleDataArray[indexPath.section]
                 if checkArrayHasLessOneValue(arr: model.dataArray) && model.dataArray!.count > indexPath.row {
-                    // 品牌
-                    // 品类
-                    switch model.modelRequestParmType {
-                    case .brand: //品牌
-                        break
-                    case .category: //品类
-                        break
-                    case .filter: // 筛选
-                        let sModel = model.dataArray![indexPath.row]
-                        sModel.isTempSelected = !sModel.isTempSelected
-                        
-                        for sItem in model.dataArray! {
-                            if sItem.isTempSelected {
-                                model.isTempSelected = true
+                    
+                    let sModel = model.dataArray![indexPath.row]
+                    sModel.isTempSelected = !sModel.isTempSelected
+                    self.selectedBrandIdsSet.removeAll()
+                    self.selectedCategoryIdsSet.removeAll()
+                    for sItem in model.dataArray! {
+                        if sItem.isTempSelected && checkStringIsValue(string: sItem.modelValue) {
+                            model.isTempSelected = true
+                            if model.modelRequestParmType == .brand {
+                                self.selectedBrandIdsSet.insert(sItem.modelValue)
+                            } else if model.modelRequestParmType == .category {
+                                self.selectedCategoryIdsSet.insert(sItem.modelValue)
                             }
                         }
-                        break
-                    default:
-                        break
+                    }
+                    if model.modelRequestParmType == .brand {
+                        refreshAllBrandDataStatus()
+                    } else if model.modelRequestParmType == .category {
+                        refreshAllCategoryDataStatus()
                     }
                 }
                 collectionView.reloadData()
             }
         }
-        
     }
+    
+    // MARK: -- 刷新所有品牌 状态
+    func refreshAllBrandDataStatus()  {
+        for item in self.filterAllBrandListArray {
+            if checkArrayHasLessOneValue(arr: item.dataArray) {
+                for sItem in item.dataArray! {
+                    if checkStringIsValue(string: sItem.modelValue) && self.selectedBrandIdsSet.firstIndex(of: sItem.modelValue) != nil {
+                        sItem.isTempSelected = true
+                    } else {
+                        sItem.isTempSelected = false
+                    }
+                    
+                }
+            }
+        }
+    }
+    // MARK: -- 刷新所有品类 状态
+    func refreshAllCategoryDataStatus()  {
+        for item in self.filterAllCategoryListArray {
+            if checkArrayHasLessOneValue(arr: item.dataArray) {
+                for sItem in item.dataArray! {
+                    if checkStringIsValue(string: sItem.modelValue) && self.selectedCategoryIdsSet.firstIndex(of: sItem.modelValue) != nil {
+                        sItem.isTempSelected = true
+                    } else {
+                        sItem.isTempSelected = false
+                    }
+                }
+            }
+        }
+    }
+    
 }
 // MARK: --  UICollectionView HeaderView
 extension LFFilterFilterMenuView {
@@ -556,7 +695,16 @@ extension LFFilterFilterMenuView {
             let view = sideFilterCollectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "LFFilterSectionHeaderView", for: indexPath) as! LFFilterSectionHeaderView
             if self.filterTitleDataArray.count > indexPath.section {
                 let model = self.filterTitleDataArray[indexPath.section]
-                view.lfFilterSectionHeaderViewValueWith(item: model)
+                var string:String?
+                var showMore:Bool = false
+                if model.modelRequestParmType == .brand {
+                    string = filterAllSelectedBrandNames()
+                    showMore = checkArrayHasLessOneValue(arr: model.dataArray)
+                } else if model.modelRequestParmType == .category {
+                    string = filterAllSelectedCategoryNames()
+                    showMore = checkArrayHasLessOneValue(arr: model.dataArray)
+                }
+                view.lfFilterSectionHeaderViewValueWith(item: model,contenString: string,showMore: showMore)
             }
             return view
         }
@@ -570,6 +718,47 @@ extension LFFilterFilterMenuView {
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         self.sideFilterCollectionView.endEditing(true)
+    }
+    
+    func filterAllSelectedBrandNames() -> String? {
+        var string:String?
+        var count = 0
+        for item in self.filterAllBrandListArray {
+            if checkArrayHasLessOneValue(arr: item.dataArray) {
+                for sItem in item.dataArray! {
+                    if sItem.isTempSelected && checkStringIsValue(string: sItem.modelValue) {
+                        count += 1
+                        string?.append(sItem.modelValue)
+                        string?.append(",")
+                    }
+                    if checkStringIsValue(string: string) {
+                        string!.insert(contentsOf: "已选(\(count)) ", at: string!.startIndex)
+                        string?.removeLast()
+                    }
+                }
+            }
+        }
+        return string
+    }
+    func filterAllSelectedCategoryNames() -> String? {
+        var string:String?
+        var count = 0
+        for item in self.filterAllCategoryListArray {
+            if checkArrayHasLessOneValue(arr: item.dataArray) {
+                for sItem in item.dataArray! {
+                    if sItem.isTempSelected && checkStringIsValue(string: sItem.modelValue) {
+                        count += 1
+                        string?.append(sItem.modelValue)
+                        string?.append(",")
+                    }
+                    if checkStringIsValue(string: string) {
+                        string!.insert(contentsOf: "已选(\(count)) ", at: string!.startIndex)
+                        string?.removeLast()
+                    }
+                }
+            }
+        }
+        return string
     }
 }
 
@@ -624,8 +813,13 @@ extension LFFilterFilterMenuView {
             let model = LFFilterFilterDataModel.init()
             model.modelName = arrItem1[index]
             model.modelValue = "\(index)"
+            
             arr1.append(model)
         }
+        
+        let cateModel = LFFilterFilterDataModel()
+        cateModel.dataArray = arr1
+        self.filterAllCategoryListArray.append(cateModel)
         
         let arrItem2 = ["全新","99新","95新","80新","60新"]
         var arr2 = [LFFilterFilterDataModel]()
@@ -693,12 +887,13 @@ extension LFFilterFilterMenuView {
             } else if index == 5 {
                 model.modelKey = "people"
                 model.dataArray = arr5
-                model.modelRequestParmType = .sellStatus
+                model.modelRequestParmType = .filter
                 model.modelSideFilterShow = true
             } else if index == 0 {
                 model.modelKey = "price"
                 model.modelRequestParmType = .price
                 model.modelSideFilterShow = true
+                model.modelShowIcon = false
             }
             if model.modelSideFilterShow {
                 sideFilterSectionCount += 1

@@ -211,19 +211,11 @@
 		881EE13A25524B9F0026F32D /* LFFilterMenuView */ = {
 			isa = PBXGroup;
 			children = (
-				881EE13B25524B9F0026F32D /* extension */,
 				881EE13C25524B9F0026F32D /* cell */,
 				881EE13D25524B9F0026F32D /* model */,
 				881EE13F25524B9F0026F32D /* view */,
 			);
 			path = LFFilterMenuView;
-			sourceTree = "<group>";
-		};
-		881EE13B25524B9F0026F32D /* extension */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = extension;
 			sourceTree = "<group>";
 		};
 		881EE13C25524B9F0026F32D /* cell */ = {

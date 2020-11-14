@@ -26,24 +26,35 @@ class LFFilterSectionHeaderView: UICollectionReusableView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func lfFilterSectionHeaderViewValueWith(item:LFFilterFilterDataModel)  {
+    
+    
+    func lfFilterSectionHeaderViewValueWith(item:LFFilterFilterDataModel,contenString:String?,showMore:Bool)  {
         showTitleLabel.text = item.modelName
-        if checkArrayHasLessOneValue(arr: item.dataArray) {
+        if checkStringIsValue(string: contenString) {
+            showDetailsLabel.text = contenString!
+        } else if checkArrayHasLessOneValue(arr: item.dataArray) {
             var selectedStr = ""
+            var count = 0
             for sItem in item.dataArray! {
                 if sItem.isTempSelected {
+                    count += 1
                     selectedStr.append(sItem.modelName)
                     selectedStr.append(",")
                 }
             }
             if selectedStr.count > 1 {
+                selectedStr.insert(contentsOf: "已选(\(count)) ", at: selectedStr.startIndex)
                 selectedStr.removeLast()
             }
             showDetailsLabel.text = selectedStr
+        } else {
+            showDetailsLabel.text = ""
         }
-        showMoreButton.isHidden = item.modelShowIcon
+        showMoreButton.isHidden = !showMore
         // 是否显示更多按钮操作
     }
+    
+    
     
     @objc func showMoreButtonClicked() {
         viewDelegate?.lfFilterSectionHeaderViewShowMoreButton(view: self)
@@ -63,7 +74,7 @@ class LFFilterSectionHeaderView: UICollectionReusableView {
         showDetailsLabel.snp.makeConstraints { (make) in
             make.right.equalToSuperview().offset(-30)
             make.centerY.equalToSuperview()
-            make.width.lessThanOrEqualTo(self.snp.width).dividedBy(0.5)
+            make.left.equalToSuperview().offset(100)
         }
         
         showMoreButton = UIButton(type: .custom)
